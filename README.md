@@ -19,13 +19,24 @@ Project for loading the raw data, including images, transforms and camera parame
   * k1
   * k2
 * `loadPosesFromFile` - returns a vector of `Eigen::Matrix4f` transforms, 1st one from `Xtion -> XS1` and the 2nd one from `Xtion -> XS2`. 
+* `createCloudFromImages` - creates a point cloud from an RGB image, a depth image and camera parameters. 
 
 This is compiled as a lib called `xs_data_reader`.
 
 **NOTE** `XS1` is on the left, `Xtion` is in the middle and `XS2` is on the right (in terms of the actual physical layout).
 
-### Executable
+### Executables
+
+#### `xs_data_reader_main`
 
 The executable [`xs_data_reader_main`](xs_data_reader/src/xs_data_reader_main.cpp) is meant to serve as an example on how to use the `xs_data_reader` library for loading the raw data. It also contains the method `testTransformsROS` which publishes the loaded camera poses so that they can be viewed in TF (with e.g. `rviz`).
 
+#### `xs_data_publisher`
+
+The executable [`xs_data_publisher`](xs_data_reader/src/xs_data_publisher.cpp) loads the data and publishes it in ros. It can be used for debugging how well the camera transforms and paramters fit, by visualizing in `rviz` the projected `Xtion` point cloud in the two camera images. The topics published are:
+* `/xs1/image` and `/xs1/camera_info`
+* `/xs2/image` and `/xs2/camera_info`
+* `/xtion_cloud`
+ 
+By subscribing to `/xtion_cloud` and adding an object of type [Camera](http://wiki.ros.org/rviz/DisplayTypes/Camera) in `rviz` subscribed to one of the xs image topics, you can visualize the projection of the point cloud in the camera image.
 
