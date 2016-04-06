@@ -61,8 +61,9 @@ int main(int argc, char** argv)
     xs1_cam_info.P[5] = params_rgb2[1];
     xs1_cam_info.P[6] = params_rgb2[3];
     xs1_cam_info.P[10] = 1.0;
-    xs1_cam_info.D.push_back(params_rgb2[4]);
-    xs1_cam_info.D.push_back(params_rgb2[5]);
+//    xs1_cam_info.D.push_back(params_rgb2[4]);
+//    xs1_cam_info.D.push_back(params_rgb2[5]);
+    xs1_cam_info.D = {params_rgb2[4], params_rgb2[5], 0.0, 0.0, 0.0};
     xs1_cam_info.header.frame_id="/XS1";
 
     sensor_msgs::CameraInfo xs2_cam_info;
@@ -76,8 +77,9 @@ int main(int argc, char** argv)
     xs2_cam_info.P[5] = params_rgb3[1];
     xs2_cam_info.P[6] = params_rgb3[3];
     xs2_cam_info.P[10] = 1.0;
-    xs2_cam_info.D.push_back(params_rgb3[4]);
-    xs2_cam_info.D.push_back(params_rgb3[5]);
+//    xs2_cam_info.D.push_back(params_rgb3[4]);
+//    xs2_cam_info.D.push_back(params_rgb3[5]);
+    xs2_cam_info.D = {params_rgb3[4], params_rgb3[5], 0.0, 0.0, 0.0};
     xs2_cam_info.header.frame_id="/XS2";
 
 
