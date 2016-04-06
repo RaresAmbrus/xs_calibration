@@ -132,3 +132,38 @@ std::vector<Eigen::Matrix4f> loadPosesFromFile(const std::string& poses_file, in
         toRet.push_back(transform);
     }
 }
+
+boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> createCloudFromImages(cv::Mat rgb, cv::Mat depth, const double* params)
+{
+    boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    double cx = 0.001 / params[0];
+    double cy = 0.001 / params[1];
+    double center_x = params[2];
+    double center_y = params[3];
+
+    for (int v = 0; v < rgb.rows; ++v)
+    {
+        for (int u = 0; u < rgb.cols; ++u)
+        {
+            pcl::PointXYZRGB pt;
+            const float point_depth = (float)depth.at<u_int16_t>(v,u);
+
+            if (!(point_depth != 0))
+            {
+                pt.x = pt.y = pt.z = std::numeric_limits<float>::quiet_NaN();
+            } else {
+                // Fill in XYZ
+                pt.x = (u - center_x) * point_depth * cx;
+                pt.y = (v - center_y) * point_depth * cy;
+                pt.z = (float) point_depth * 0.001f; // convert to uint16 to meters
+            }
+
+            uint32_t point_rgb = ((uint8_t)rgb.at<cv::Vec3b>(v, u)[2] << 16 | (uint8_t) rgb.at<cv::Vec3b>(v, u)[1] << 8 | (uint8_t)rgb.at<cv::Vec3b>(v, u)[0]);
+            pt.rgb = *reinterpret_cast<float*>(&point_rgb);
+            cloud->push_back(pt);
+        }
+    }
+
+    return cloud;
+}
