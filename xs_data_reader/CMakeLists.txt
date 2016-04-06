@@ -4,7 +4,7 @@ project(xs_data_reader)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs sensor_msgs pcl_ros qt_build image_transport tf_conversions image_geometry)
+find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs sensor_msgs pcl_ros qt_build image_transport tf_conversions image_geometry cv_bridge)
 
 
 set(CMAKE_CXX_FLAGS "-fopenmp -O4 -fPIC -std=c++0x -fpermissive ${CMAKE_CXX_FLAGS}")
@@ -56,3 +56,11 @@ add_executable(xs_data_reader_main src/xs_data_reader_main.cpp)
     xs_data_reader
   )
 
+add_executable(xs_data_publisher src/xs_data_publisher.cpp)
+
+ target_link_libraries(xs_data_publisher
+   ${catkin_LIBRARIES}
+   ${PCL_LIBRARIES}
+   ${QT_LIBRARIES}
+    xs_data_reader
+  )
