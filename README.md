@@ -20,7 +20,9 @@ Project for loading the raw data, including images, transforms and camera parame
   * k2
 * `loadPosesFromFile` - returns a vector of `Eigen::Matrix4f` transforms, 1st one from `Xtion -> XS1` and the 2nd one from `Xtion -> XS2`. 
 
-This is compiled as a lib called `xs_data_reader`
+This is compiled as a lib called `xs_data_reader`.
+
+**NOTE** `XS1` is on the left, `Xtion` is in the middle and `XS2` is on the right (in terms of the actual physical layout).
 
 ### Executable
 
