@@ -57,7 +57,7 @@ int main(int argc, char** argv)
 
 
 void testTransformsROS(int argc, char** argv, const std::vector<tf::Transform>& transforms){
-    ros::init(argc, argv, "xs_registration");
+    ros::init(argc, argv, "xs_data_reader");
     ros::NodeHandle n("~");
 
     tf::TransformBroadcaster br1;
@@ -67,8 +67,8 @@ void testTransformsROS(int argc, char** argv, const std::vector<tf::Transform>& 
     ros::Rate rate(50.0f);
 
     while (n.ok()) {
-        br1.sendTransform(tf::StampedTransform(transforms[0].inverse(), ros::Time::now(), "camera_rgb_optical_frame", "XS1"));
-        br2.sendTransform(tf::StampedTransform(transforms[1].inverse(), ros::Time::now(), "camera_rgb_optical_frame", "XS2"));
+        br1.sendTransform(tf::StampedTransform(transforms[0].inverse(), ros::Time::now(), "xtion", "XS1"));
+        br2.sendTransform(tf::StampedTransform(transforms[1].inverse(), ros::Time::now(), "xtion", "XS2"));
         rate.sleep();
     }
 }
