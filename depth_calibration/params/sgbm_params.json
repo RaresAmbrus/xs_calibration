@@ -1,0 +1,12 @@
+{
+    "value0": {
+        "SADWindowSize": 15,
+        "numberOfDisparities": 16,
+        "preFilterCap": 63,
+        "minDisparity": 0,
+        "uniquenessRatio": 15,
+        "speckleWindowSize": 2000,
+        "speckleRange": 1,
+        "disp12MaxDiff": -1
+    }
+}
