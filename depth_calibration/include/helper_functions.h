@@ -7,6 +7,7 @@
 
 
 bool parseDataFolder(std::string data_folder, std::vector<cv::Mat>& rgbv1, std::vector<cv::Mat>& rgbv2, std::vector<cv::Mat>& rgbv3, std::vector<cv::Mat>& depthv1);
+bool parseDataDisparity(std::string data_folder, std::vector<cv::Mat>& depthv1);
 
 
 #endif

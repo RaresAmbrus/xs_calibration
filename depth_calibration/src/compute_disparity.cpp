@@ -7,14 +7,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <eigen3/Eigen/Dense>
 #include <cereal/archives/json.hpp>
 #include <boost/filesystem.hpp>
 
 using namespace std;
-
-int pair_number;
 
 Eigen::Matrix4f read_transform(ifstream& in)
 {
@@ -312,14 +311,15 @@ int main(int argc, char** argv)
     int prev_rectify_mode = rectify_mode;
 
     string image_folder = data_folder + "/rectified";
+    int image_counter = 0;
     for (int i = 0; i < N; ++i) {
         cv::Mat rectified1;
         cv::Mat rectified2;
         cv::Mat Q;
         tie(rectified1, rectified2, Q) = rectify_images(rgbv2[i], camera1, distortion1, transform1,
                                                         rgbv3[i], camera2, distortion2, transform2, rectify_mode);
-        cv::imwrite(image_folder + "/left" + to_string(i) + ".png", rectified1);
-        cv::imwrite(image_folder + "/right" + to_string(i) + ".png", rectified2);
+        //cv::imwrite(image_folder + "/left" + to_string(i) + ".png", rectified1);
+        //cv::imwrite(image_folder + "/right" + to_string(i) + ".png", rectified2);
         /*cv::namedWindow("rectified1", cv::WINDOW_NORMAL);
         cv::imshow("rectified1", rectified1);
         cv::namedWindow("rectified2", cv::WINDOW_NORMAL);
@@ -376,6 +376,11 @@ int main(int argc, char** argv)
 
             cv::imshow("disp", disp_img);
 
+            stringstream depth1_file_ss; depth1_file_ss<<"/disparity_depth_1_"<<std::setfill('0')<<std::setw(4)<<image_counter<<".yml";
+            string depth1_file = data_folder+depth1_file_ss.str();
+            cv::FileStorage fs(depth1_file, cv::FileStorage::WRITE);
+            fs << "mat1" << depth;  //choose any key here, just be consistant with the one below
+
             // Wait until user press some key for 50ms
             char key = cv::waitKey();
 
@@ -397,6 +402,8 @@ int main(int argc, char** argv)
                 params.minDisparity += 100;
             }
         }
+
+        ++image_counter;
     }
 
     return 0;

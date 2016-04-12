@@ -20,3 +20,6 @@ target_link_libraries(helper_functions ${OpenCV_LIBS} ${QT_QTMAIN_LIBRARY} ${QT_
 
 add_executable(compute_disparity src/compute_disparity.cpp)
 target_link_libraries(compute_disparity helper_functions ${OpenCV_LIBS} ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} boost_system boost_filesystem)
+
+add_executable(calibrate_depth_disparity src/calibrate_depth_disparity.cpp)
+target_link_libraries(calibrate_depth_disparity helper_functions ${OpenCV_LIBS} ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} boost_system boost_filesystem)
