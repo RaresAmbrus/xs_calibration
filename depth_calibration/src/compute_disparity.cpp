@@ -49,9 +49,9 @@ pair<Eigen::Matrix3f, Eigen::Matrix<float, 5, 1> > read_camera(const string& cam
     return make_pair(camera, distortion);
 }
 
-tuple<cv::Mat, cv::Mat, cv::Mat> rectify_images(cv::Mat& rgb1, const Eigen::Matrix3f& K1, const Eigen::Matrix<float, 5, 1>& D1, const Eigen::Matrix4f& T1,
-                                                cv::Mat& rgb2, const Eigen::Matrix3f& K2, const Eigen::Matrix<float, 5, 1>& D2, const Eigen::Matrix4f& T2,
-                                                int rectify_mode)
+tuple<cv::Mat, cv::Mat, cv::Mat, cv::Mat> rectify_images(cv::Mat& rgb1, const Eigen::Matrix3f& K1, const Eigen::Matrix<float, 5, 1>& D1, const Eigen::Matrix4f& T1,
+                                                         cv::Mat& rgb2, const Eigen::Matrix3f& K2, const Eigen::Matrix<float, 5, 1>& D2, const Eigen::Matrix4f& T2,
+                                                         int rectify_mode)
 {
     cv::Mat img1;
     cv::Mat img2;
@@ -69,9 +69,13 @@ tuple<cv::Mat, cv::Mat, cv::Mat> rectify_images(cv::Mat& rgb1, const Eigen::Matr
     //distCoeffs2 << D2(0), D2(1), D2(2), D2(3), D2(4);
     //distCoeffs1 << 0.053815, -0.241557, 0, 0, 0;
     //distCoeffs2 << 0.053815, -0.241557, 0, 0, 0;
+    distCoeffs1 << 0, 0, 0, 0, 0;
+    distCoeffs2 << 0, 0, 0, 0, 0;
     //distCoeffs2 << 0.254065 -1.20616, 0, 0, 0;
-    distCoeffs1 << 0.155566594526053, -0.4125181976686453, -0.002011408581651128, -0.003590837765389968, 0.0;
-    distCoeffs2 << 0.155566594526053, -0.4125181976686453, -0.002011408581651128, -0.003590837765389968, 0.0;
+    //distCoeffs1 << 0.155566594526053, -0.4125181976686453, -0.002011408581651128, -0.003590837765389968, 0.0;
+    //distCoeffs2 << 0.155566594526053, -0.4125181976686453, -0.002011408581651128, -0.003590837765389968, 0.0;
+    //distCoeffs1 << 0.39717, -1.72497, 0, 0, 0;
+    //distCoeffs2 << 0.523109, -2.60966, 0, 0, 0;
 
     Eigen::Affine3f A1(T1);
     Eigen::Affine3f A2(T2);
@@ -104,13 +108,15 @@ tuple<cv::Mat, cv::Mat, cv::Mat> rectify_images(cv::Mat& rgb1, const Eigen::Matr
 
     cv::Rect valid_left;
     cv::Rect valid_right;
-    cv::stereoRectify(cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, img1.size(), R, T, R1, R2, P1, P2, Q, 0, -1, cv::Size(), &valid_left, &valid_right);
+    //cv::stereoRectify(cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, img1.size(), R, T, R1, R2, P1, P2, Q, 0, -1, cv::Size(), &valid_left, &valid_right);
+    cv::stereoRectify(cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, img1.size(), R, T, R1, R2, P1, P2, Q, cv::CALIB_ZERO_DISPARITY, -1, cv::Size(), &valid_left, &valid_right);
 
     cv::Mat lMap1;
     cv::Mat lMap2;
     cv::Mat rMap1;
     cv::Mat rMap2;
 
+    cv::Mat ret_rot = R1.clone();
     cv::initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R1, P1, img1.size(), CV_8UC1, lMap1, lMap2);
     cv::initUndistortRectifyMap(cameraMatrix2, distCoeffs2, R2, P2, img1.size(), CV_8UC1, rMap1, rMap2);
 
@@ -122,7 +128,7 @@ tuple<cv::Mat, cv::Mat, cv::Mat> rectify_images(cv::Mat& rgb1, const Eigen::Matr
     //leftImageMatO = leftImageMatO(valid_left);
     //rightImageMatO = rightImageMatO(valid_left);
 
-    return make_tuple(leftImageMatO, rightImageMatO, Q);
+    return make_tuple(leftImageMatO, rightImageMatO, Q, ret_rot);
 }
 
 struct sgbm_params {
@@ -194,7 +200,7 @@ cv::Mat compute_disparity(cv::Mat& g1, cv::Mat& g2, const sgbm_params& params)
 
 // this should take in the transform of the left camera I guess? We know the Kinect is at (0, 0, 0)
 cv::Mat depth_image_from_disparity(cv::Mat& disparity, cv::Mat& Q, const Eigen::Matrix3f& K, const Eigen::Matrix<float, 5, 1>& D,
-                                   const Eigen::Matrix4f& left_camera_transform)
+                                   const Eigen::Matrix4f& left_camera_transform, const Eigen::Matrix3f& rect_rot)
 {
     cv::Mat image3d;
     cv::reprojectImageTo3D(disparity, image3d, Q, false, -1);
@@ -202,7 +208,12 @@ cv::Mat depth_image_from_disparity(cv::Mat& disparity, cv::Mat& Q, const Eigen::
     std::vector<cv::Point3f> array;
     array.assign((cv::Point3f*)image3d.datastart, (cv::Point3f*)image3d.dataend);
 
+    cout << "Eigen Rotation:\n" << rect_rot << endl;
     Eigen::Affine3f A(left_camera_transform);
+    //A.rotate(rect_rot);
+    //A = rect_rot*A;//*rect_rot.transpose();
+    //A = A*rect_rot.transpose();
+    A.rotate(rect_rot);
     A = A.inverse();
     Eigen::Vector3f trans = A.translation();
     Eigen::Matrix3f rot = A.rotation();
@@ -238,7 +249,7 @@ cv::Mat depth_image_from_disparity(cv::Mat& disparity, cv::Mat& Q, const Eigen::
         if (x < 0 || x >= 640 || y < 0 || y >= 480) {
             continue;
         }
-        if (array[i].z < 7) {
+        if (array[i].z < 7 && array[i].z > 0) {
             reprojected_depth.at<float>(y, x) = array[i].z;
         }
     }
@@ -248,7 +259,11 @@ cv::Mat depth_image_from_disparity(cv::Mat& disparity, cv::Mat& Q, const Eigen::
 
 int main(int argc, char** argv)
 {
-    string data_folder = "/home/nbore/Data/stereo_images";
+    if (argc < 2) {
+        cout << "Please provide the data folder..." << endl;
+        return 0;
+    }
+    string data_folder(argv[1]); // = "/home/nbore/Data/stereo_images";
     string poses_file = data_folder + "/poses.txt";
     string camera1_file = data_folder + "/rgb2_calibrated.txt";
     string camera2_file = data_folder + "/rgb3_calibrated.txt";
@@ -316,28 +331,41 @@ int main(int argc, char** argv)
         cv::Mat rectified1;
         cv::Mat rectified2;
         cv::Mat Q;
-        tie(rectified1, rectified2, Q) = rectify_images(rgbv2[i], camera1, distortion1, transform1,
-                                                        rgbv3[i], camera2, distortion2, transform2, rectify_mode);
+        cv::Mat R;
+        tie(rectified1, rectified2, Q, R) = rectify_images(rgbv2[i], camera1, distortion1, transform1,
+                                                           rgbv3[i], camera2, distortion2, transform2, rectify_mode);
         //cv::imwrite(image_folder + "/left" + to_string(i) + ".png", rectified1);
         //cv::imwrite(image_folder + "/right" + to_string(i) + ".png", rectified2);
-        /*cv::namedWindow("rectified1", cv::WINDOW_NORMAL);
+        /*
+        cv::namedWindow("rectified1", cv::WINDOW_NORMAL);
         cv::imshow("rectified1", rectified1);
         cv::namedWindow("rectified2", cv::WINDOW_NORMAL);
         cv::imshow("rectified2", rectified2);
-        cv::waitKey();*/
+        cv::waitKey();
+        */
 
         while (true) {
             if (prev_rectify_mode != rectify_mode) {
-                tie(rectified1, rectified2, Q) = rectify_images(rgbv2[i], camera1, distortion1, transform1,
-                                                                rgbv3[i], camera2, distortion2, transform2, rectify_mode);
+                tie(rectified1, rectified2, Q, R) = rectify_images(rgbv2[i], camera1, distortion1, transform1,
+                                                                   rgbv3[i], camera2, distortion2, transform2, rectify_mode);
                 prev_rectify_mode = rectify_mode;
             }
             params.minDisparity -= 100;
             cv::Mat disp = compute_disparity(rectified1, rectified2, params);
             params.minDisparity += 100;
-            Eigen::Matrix4f T;
-            T.setIdentity();
-            cv::Mat depth = depth_image_from_disparity(disp, Q, camera_depth, distortion_depth, T);
+            /*
+            cv::namedWindow("disparity", cv::WINDOW_NORMAL);
+            cv::imshow("disparity", disp);
+            cv::waitKey();
+            */
+            cout << "CV Rotation:\n" << R << endl;
+            Eigen::Matrix3f rect_rot;
+            //rect_rot = Eigen::Map<Eigen::Matrix3f>((float*)R.data);
+            rect_rot << R.at<double>(0, 0), R.at<double>(0, 1), R.at<double>(0, 2),
+                        R.at<double>(1, 0), R.at<double>(1, 1), R.at<double>(1, 2),
+                        R.at<double>(2, 0), R.at<double>(2, 1), R.at<double>(2, 2);
+            Eigen::Matrix4f T = transform1; //.inverse(); //
+            cv::Mat depth = depth_image_from_disparity(disp, Q, camera_depth, distortion_depth, T, rect_rot);
             cv::Mat disp8;
             double min, max;
             cv::minMaxLoc(depth, &min, &max);
