@@ -11,6 +11,9 @@
 #include <eigen3/Eigen/Dense>
 #include <cereal/archives/json.hpp>
 #include <boost/filesystem.hpp>
+#include <sparse_gp/sparse_gp.h>
+#include <sparse_gp/gaussian_noise.h>
+#include <sparse_gp/rbf_kernel_3d.h>
 
 using namespace std;
 
@@ -76,6 +79,7 @@ int main(int argc, char** argv)
         level_counts[level] = cv::Mat::zeros(cv::Size(640, 480), CV_32F);
     }
 
+    sparse_gp<rbf_kernel_3d, gaussian_noise> gp;
     for (int i = 0; i < N; ++i) {
         cv::Mat real_depth;
         depthv1[i].convertTo(real_depth, CV_32F, 1./1000);
@@ -98,6 +102,12 @@ int main(int argc, char** argv)
         tie(scan_residual, scan_counts) = compute_residual(real_depth, disparity_depthv1[i]);
         residual += scan_residual;
         counts += scan_counts;
+
+        // X = x pixel, y pixel, depth in original image
+        // y = residual
+        Eigen::MatrixXd X;
+        Eigen::VectorXd y;
+        gp.add_measurements(X, y);
 
         for (int level = 0; level < nbr_levels; ++level) {
             cv::Mat depth_mask = real_depth < float(level+1);
@@ -135,6 +145,15 @@ int main(int argc, char** argv)
     cv::imwrite(data_folder + "/residual.png", residual8);
 
     for (int level = 0; level < nbr_levels; ++level) {
+
+        // X = x pixel, y pixel, depth in original image
+        // f_star = estimated residual
+        // V_star = estimated variance
+        Eigen::MatrixXd X_star;
+        Eigen::VectorXd f_star;
+        Eigen::VectorXd V_star;
+        gp.predict_measurements(f_star, X_star, V_star);
+
         normalize_residuals(level_residuals[level], level_counts[level]);
         cv::Mat residual8;
         cv::normalize(level_residuals[level], residual8, 0, 255, CV_MINMAX, CV_8U);
