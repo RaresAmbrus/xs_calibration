@@ -64,6 +64,7 @@ int main(int argc, char** argv)
 //    xs1_cam_info.D.push_back(params_rgb2[4]);
 //    xs1_cam_info.D.push_back(params_rgb2[5]);
     xs1_cam_info.D = {params_rgb2[4], params_rgb2[5], 0.0, 0.0, 0.0};
+//    xs1_cam_info.D = {0.155566594526053, -0.4125181976686453, -0.002011408581651128, -0.003590837765389968, 0.0}; // original distortion parameters
     xs1_cam_info.header.frame_id="/XS1";
 
     sensor_msgs::CameraInfo xs2_cam_info;
@@ -80,6 +81,7 @@ int main(int argc, char** argv)
 //    xs2_cam_info.D.push_back(params_rgb3[4]);
 //    xs2_cam_info.D.push_back(params_rgb3[5]);
     xs2_cam_info.D = {params_rgb3[4], params_rgb3[5], 0.0, 0.0, 0.0};
+//    xs2_cam_info.D = {0.155566594526053, -0.4125181976686453, -0.002011408581651128, -0.003590837765389968, 0.0}; // original distortion parameters
     xs2_cam_info.header.frame_id="/XS2";
 
 
