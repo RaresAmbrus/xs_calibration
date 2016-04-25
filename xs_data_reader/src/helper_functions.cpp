@@ -98,6 +98,40 @@ bool parseDataDisparity(std::string data_folder, std::vector<cv::Mat>& depthv1)
     }
 }
 
+bool parseDataResiduals(std::string data_folder, std::vector<cv::Mat>& residuals)
+{
+    using namespace std;
+
+    data_folder+="/";
+    cout<<"Looking for XS images in "<<data_folder<<endl;
+
+    bool files_found = true;
+
+    int image_counter = 0;
+    while (files_found){
+        stringstream residual_file_ss; residual_file_ss<<"/residual_level_"<<std::setfill('0')<<std::setw(4)<<image_counter<<".yml";
+        string residual_file = data_folder+residual_file_ss.str();
+        if (!QFile(residual_file.c_str()).exists()){
+            files_found = false;
+            break;
+        }
+
+        cv::Mat residual;// = cv::imread(depth1_file.c_str(), CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
+        cv::FileStorage fs(residual_file, cv::FileStorage::READ );
+        fs["mat1"] >> residual;
+        residuals.push_back(residual);
+
+        image_counter++;
+    }
+
+    if (residuals.size()){
+        cout<<"Found "<<residuals.size()<<" images "<<endl;
+        return true;
+    } else {
+        return false;
+    }
+}
+
 void visualize_data(const std::vector<cv::Mat>& rgbv1, const std::vector<cv::Mat>& rgbv2,
                     const std::vector<cv::Mat>& rgbv3, const std::vector<cv::Mat>& depthv1){
     cv::namedWindow("test", cv::WINDOW_OPENGL);
