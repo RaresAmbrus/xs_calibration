@@ -26,8 +26,8 @@ using namespace Eigen;
 
 template <class Kernel, class Noise>
 sparse_gp<Kernel, Noise>::sparse_gp(int capacity, double s0) :
-    kernel(), noise(s0), capacity(capacity), s20(s0),
-    eps_tol(1e-6f), current_size(0), total_count(0) // 1e-6f
+    kernel(), noise(s0), capacity(capacity), s20(1e-2),
+    eps_tol(9e-3f), current_size(0), total_count(0) // 1e-6f
 {
 
 }

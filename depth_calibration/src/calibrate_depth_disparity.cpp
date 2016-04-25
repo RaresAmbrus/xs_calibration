@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <eigen3/Eigen/Dense>
 #include <cereal/archives/json.hpp>
@@ -37,7 +38,7 @@ void normalize_residuals(cv::Mat& residual, cv::Mat& counts)
     counts.setTo(cv::Scalar(1.0f), mask);
     residual /= counts;
 
-    cv::Mat mask_certainty = counts < 3;
+    cv::Mat mask_certainty = counts < 2;
     residual.setTo(cv::Scalar(0.0f), mask_certainty);
 }
 
@@ -105,8 +106,21 @@ int main(int argc, char** argv)
 
         // X = x pixel, y pixel, depth in original image
         // y = residual
-        Eigen::MatrixXd X;
-        Eigen::VectorXd y;
+        int nbr_depths = cv::countNonZero(scan_counts);
+        Eigen::MatrixXd X(nbr_depths, 3);
+        Eigen::VectorXd y(nbr_depths);
+        int counter = 0;
+        for (int r = 0; r < 480; ++r) {
+            for (int c = 0; c < 640; ++c) {
+                if (scan_counts.at<float>(r, c) != 0) {
+                    y(counter) = scan_residual.at<float>(r, c);
+                    X.row(counter) = Eigen::Vector3d(c, r, real_depth.at<float>(r, c));
+                    ++counter;
+                }
+            }
+        }
+        cout << "Number depths: " << nbr_depths << endl;
+        cout << "Counter: " << counter << endl;
         gp.add_measurements(X, y);
 
         for (int level = 0; level < nbr_levels; ++level) {
@@ -149,18 +163,50 @@ int main(int argc, char** argv)
         // X = x pixel, y pixel, depth in original image
         // f_star = estimated residual
         // V_star = estimated variance
-        Eigen::MatrixXd X_star;
-        Eigen::VectorXd f_star;
-        Eigen::VectorXd V_star;
+        Eigen::MatrixXd X_star(480*640, 3);
+        int counter = 0;
+        for (int r = 0; r < 480; ++r) {
+            for (int c = 0; c < 640; ++c) {
+                X_star.row(counter) = Eigen::Vector3d(c, r, double(level) + 0.5);
+                ++counter;
+            }
+        }
+        Eigen::VectorXd f_star(X_star.rows());
+        f_star.setOnes();
+        Eigen::VectorXd V_star(X_star.rows());
         gp.predict_measurements(f_star, X_star, V_star);
+
+        cv::Mat pred_residual(cv::Size(640, 480), CV_32F);
+        counter = 0;
+        for (int r = 0; r < 480; ++r) {
+            for (int c = 0; c < 640; ++c) {
+                pred_residual.at<float>(r, c) = f_star(counter);
+                ++counter;
+            }
+        }
+
+        cv::Mat pred_residual8;
+        cv::normalize(pred_residual, pred_residual8, 0, 255, CV_MINMAX, CV_8U);
 
         normalize_residuals(level_residuals[level], level_counts[level]);
         cv::Mat residual8;
         cv::normalize(level_residuals[level], residual8, 0, 255, CV_MINMAX, CV_8U);
-        cv::imshow("residual", residual8);
+
+        cv::Mat disp_img(cv::Size(1280, 480), CV_8U);
+        cv::Mat left(disp_img, cv::Rect(0, 0, 640, 480)); // Copy constructor
+        residual8.copyTo(left);
+        cv::Mat right(disp_img, cv::Rect(640, 0, 640, 480)); // Copy constructor
+        pred_residual8.copyTo(right);
+
+        cv::imshow("residual", disp_img);
         cv::waitKey();
 
-        cv::imwrite(data_folder + "/residual_level" + to_string(level) + ".png", residual8);
+        cv::imwrite(data_folder + "/vis_residual_level" + to_string(level) + ".png", residual8);
+
+        stringstream residual_file_ss; residual_file_ss<<"/residual_level_"<<std::setfill('0')<<std::setw(4)<<level<<".yml";
+        string residual_file = data_folder+residual_file_ss.str();
+        cv::FileStorage fs(residual_file, cv::FileStorage::WRITE);
+        fs << "mat1" << level_residuals[level];
     }
 
     return 0;

@@ -4,10 +4,11 @@
 #include <vector>
 #include <string>
 #include <opencv2/opencv.hpp>
-#include <Eigen/Core>
+#include <eigen3/Eigen/Core>
 #include <pcl_ros/point_cloud.h>
 
 bool parseDataFolder(std::string data_folder, std::vector<cv::Mat>& rgbv1, std::vector<cv::Mat>& rgbv2, std::vector<cv::Mat>& rgbv3, std::vector<cv::Mat>& depthv1);
+bool parseDataDisparity(std::string data_folder, std::vector<cv::Mat>& depthv1);
 
 void visualize_data(const std::vector<cv::Mat>& rgbv1, const std::vector<cv::Mat>& rgbv2,
                     const std::vector<cv::Mat>& rgbv3, const std::vector<cv::Mat>& depthv1);

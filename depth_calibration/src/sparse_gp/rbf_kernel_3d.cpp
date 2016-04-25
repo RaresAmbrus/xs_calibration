@@ -4,17 +4,23 @@
 
 using namespace Eigen;
 
-rbf_kernel_3d::rbf_kernel_3d(double sigmaf_sq, double l_sq) :
-    p(2), sigmaf_sq(sigmaf_sq), l_sq(l_sq)
+rbf_kernel_3d::rbf_kernel_3d(double sigmaf_sq, double l_sq, double d_sq) :
+    p(3), sigmaf_sq(sigmaf_sq), l_sq(l_sq), d_sq(d_sq)
 {
     p(0) = sigmaf_sq;
     p(1) = l_sq;
+    p(2) = d_sq;
 }
 
 // squared exponential coviariance, should use matern instead
 double rbf_kernel_3d::kernel_function(const Vector3d& xi, const Vector3d& xj)
 {
-    return p(0)*exp(-0.5f / p(1) * (xi - xj).squaredNorm());
+    // this should be fine for any-dimensional vectors
+    //return p(0)*exp(-0.5f / p(1) * (xi - xj).squaredNorm());
+    Vector3d diff = xi - xj;
+    diff(2) *= sqrt(p(1)/p(2));
+    return p(0)*exp(-0.5f/p(1)*diff.squaredNorm());
+
 }
 
 // fast computation of kernel derivatives

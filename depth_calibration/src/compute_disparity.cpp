@@ -263,6 +263,9 @@ int main(int argc, char** argv)
         cout << "Please provide the data folder..." << endl;
         return 0;
     }
+
+    bool visualize = false;
+
     string data_folder(argv[1]); // = "/home/nbore/Data/stereo_images";
     string poses_file = data_folder + "/poses.txt";
     string camera1_file = data_folder + "/rgb2_calibrated.txt";
@@ -402,33 +405,41 @@ int main(int argc, char** argv)
             cv::Mat far(disp_img, cv::Rect(1280, 0, 640, 480));
             cv::cvtColor(real_depth8, far, CV_GRAY2BGR);
 
-            cv::imshow("disp", disp_img);
+            if (visualize) {
+                cv::imshow("disp", disp_img);
+            }
 
             stringstream depth1_file_ss; depth1_file_ss<<"/disparity_depth_1_"<<std::setfill('0')<<std::setw(4)<<image_counter<<".yml";
             string depth1_file = data_folder+depth1_file_ss.str();
             cv::FileStorage fs(depth1_file, cv::FileStorage::WRITE);
             fs << "mat1" << depth;  //choose any key here, just be consistant with the one below
 
-            // Wait until user press some key for 50ms
-            char key = cv::waitKey();
+            if (visualize) {
+                // Wait until user press some key for 50ms
+                char key = cv::waitKey();
 
-            //if user press 'ESC' key
-            if (key == 'n') {
-                break;
-            }
-            else if (key == 'p') {
-                i -= 2;
-                break;
-            }
-            else if (key == 's') {
-                params.minDisparity -= 100;
-                std::ofstream out(param_file);
-                {
-                    cereal::JSONOutputArchive archive_o(out);
-                    archive_o(params);
+                //if user press 'ESC' key
+                if (key == 'n') {
+                    break;
                 }
-                params.minDisparity += 100;
+                else if (key == 'p') {
+                    i -= 2;
+                    break;
+                }
+                else if (key == 's') {
+                    params.minDisparity -= 100;
+                    std::ofstream out(param_file);
+                    {
+                        cereal::JSONOutputArchive archive_o(out);
+                        archive_o(params);
+                    }
+                    params.minDisparity += 100;
+                }
             }
+            else {
+                break;
+            }
+
         }
 
         ++image_counter;

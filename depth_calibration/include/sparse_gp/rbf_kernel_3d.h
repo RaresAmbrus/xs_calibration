@@ -9,6 +9,7 @@ class rbf_kernel_3d
 private:
     double sigmaf_sq;
     double l_sq; // length parameter, how far points influence each other
+    double d_sq;
     Eigen::VectorXd p;
 public:
     int param_size();
@@ -21,7 +22,7 @@ public:
     void kernels_fast(Eigen::ArrayXXd& K_dx, Eigen::ArrayXXd& K_dy, const Eigen::MatrixXd& X, const Eigen::MatrixXd& BV);
     void construct_covariance_fast(Eigen::MatrixXd& K, const Eigen::MatrixXd& X, const Eigen::MatrixXd& BV);
     //rbf_kernel(double sigmaf_sq = 1e-0f, double l_sq = 0.05*0.05);
-    rbf_kernel_3d(double sigmaf_sq = 10e-0f, double l_sq = 1*1);
+    rbf_kernel_3d(double sigmaf_sq = 1e-2f, double l_sq = 30*30, double d_sq = 0.7*0.7);
 };
 
 #endif // RBF_KERNEL_3D_H
