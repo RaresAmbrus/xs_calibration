@@ -51,7 +51,7 @@ pair<Eigen::Matrix3f, Eigen::Matrix<float, 5, 1> > read_camera(const string& cam
 
 tuple<cv::Mat, cv::Mat, cv::Mat, cv::Mat> rectify_images(cv::Mat& rgb1, const Eigen::Matrix3f& K1, const Eigen::Matrix<float, 5, 1>& D1, const Eigen::Matrix4f& T1,
                                                          cv::Mat& rgb2, const Eigen::Matrix3f& K2, const Eigen::Matrix<float, 5, 1>& D2, const Eigen::Matrix4f& T2,
-                                                         int rectify_mode)
+                                                         int rectify_mode, cv::Rect& valid1, cv::Rect& valid2)
 {
     cv::Mat img1;
     cv::Mat img2;
@@ -83,7 +83,7 @@ tuple<cv::Mat, cv::Mat, cv::Mat, cv::Mat> rectify_images(cv::Mat& rgb1, const Ei
     if (rectify_mode == 0) {
         A12 = A2*A1.inverse();
     }
-    else if (rectify_mode == 1) {
+    else if (rectify_mode == 1) { // this is the correct way to compute the transform
         A12 = A1.inverse()*A2;
     }
     else if (rectify_mode == 2) {
@@ -106,10 +106,8 @@ tuple<cv::Mat, cv::Mat, cv::Mat, cv::Mat> rectify_images(cv::Mat& rgb1, const Ei
     cv::Mat P2; // 3x4 matrix
     cv::Mat Q;  // 4x4 matrix
 
-    cv::Rect valid_left;
-    cv::Rect valid_right;
     //cv::stereoRectify(cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, img1.size(), R, T, R1, R2, P1, P2, Q, 0, -1, cv::Size(), &valid_left, &valid_right);
-    cv::stereoRectify(cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, img1.size(), R, T, R1, R2, P1, P2, Q, cv::CALIB_ZERO_DISPARITY, -1, cv::Size(), &valid_left, &valid_right);
+    cv::stereoRectify(cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, img1.size(), R, T, R1, R2, P1, P2, Q, cv::CALIB_ZERO_DISPARITY, -1, cv::Size(), &valid1, &valid2);
 
     cv::Mat lMap1;
     cv::Mat lMap2;
@@ -257,6 +255,65 @@ cv::Mat depth_image_from_disparity(cv::Mat& disparity, cv::Mat& Q, const Eigen::
     return reprojected_depth;
 }
 
+cv::Rect compute_valid_region(cv::Mat& Q, const Eigen::Matrix3f& K1, const Eigen::Matrix3f& K,
+                              const Eigen::Matrix<float, 5, 1>& D, const Eigen::Matrix4f& left_camera_transform,
+                              const Eigen::Matrix3f& rect_rot, const cv::Rect& valid1, const cv::Rect& valid2,
+                              sgbm_params& params)
+{
+    Eigen::Affine3f A(left_camera_transform);
+    A.rotate(rect_rot);
+    A = A.inverse();
+
+    // these points probably need to be transformed with the camera matrices?
+    Eigen::Matrix<float, 3, 4> points1;
+    points1.col(0) << valid1.x, valid1.y, 1.0f;
+    points1.col(1) << valid1.x, valid1.y + valid1.height, 1.0f;
+    points1.col(2) << valid1.x + valid1.width + 16*params.numberOfDisparities, valid1.y, 1.0f;
+    points1.col(3) << valid1.x + valid1.width + 16*params.numberOfDisparities, valid1.y + valid1.height, 1.0f;
+    points1 = K1.householderQr().solve(points1);
+
+    Eigen::Matrix<float, 3, 4> points2;
+    points2.col(0) << valid2.x + 16*params.numberOfDisparities, valid2.y, 1.0f;
+    points2.col(1) << valid2.x + 16*params.numberOfDisparities, valid2.y + valid2.height, 1.0f;
+    points2.col(2) << valid2.x + valid2.width + params.minDisparity, valid2.y, 1.0f;
+    points2.col(3) << valid2.x + valid2.width + params.minDisparity, valid2.y + valid2.height, 1.0f;
+    points2 = K1.householderQr().solve(points2);
+
+    points1 = points1.array().rowwise() / points1.array().row(2);
+    points2 = points2.array().rowwise() / points2.array().row(2);
+
+
+    // either valid1 or valid2 is the valid region in left camera, where we have the disparities
+    // it should be valid1. How can we transfer this rectangle to the middle camera?
+    // The images are already rectified, so it should be a matter of translating them in the shared camera plane?
+    // So, if we assume the points are in the image plane and then apply the transform (left_camera_transform)
+    // we should be able to get something?
+    points1 = K*A*points1;
+    points2 = K*A*points2;
+
+    points1 = points1.array().rowwise() / points1.array().row(2);
+    points2 = points2.array().rowwise() / points2.array().row(2);
+
+    //cv::minAreaRect();
+    Eigen::Matrix2f rect_points;
+    rect_points(0, 0) = std::max(std::min(points1(0, 0), points1(0, 1)), std::min(points2(0, 0), points2(0, 1)));// + 30;
+    rect_points(1, 0) = std::max(std::min(points1(1, 0), points1(1, 2)), std::min(points2(1, 0), points2(1, 2)));
+    rect_points(0, 1) = std::min(std::max(points1(0, 2), points1(0, 3)), std::max(points2(0, 2), points2(0, 3)));// + 30;
+    rect_points(1, 1) = std::min(std::max(points1(1, 1), points1(1, 3)), std::max(points2(1, 1), points2(1, 3)));
+
+    // what we really want here is picking min/max of the four corners and then pick min of those
+
+    cv::Rect rect;
+    rect.x = int(rect_points(0, 0));
+    rect.y = int(rect_points(1, 0));
+    rect.width = int(rect_points(0, 1) - rect_points(0, 0));
+    rect.height = int(rect_points(1, 1) - rect_points(1, 0));
+
+    cout << "Valid rect: " << rect << endl;
+
+    return rect;
+}
+
 int main(int argc, char** argv)
 {
     if (argc < 2) {
@@ -264,7 +321,7 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    bool visualize = false;
+    bool visualize = true;
 
     string data_folder(argv[1]); // = "/home/nbore/Data/stereo_images";
     string poses_file = data_folder + "/poses.txt";
@@ -335,8 +392,11 @@ int main(int argc, char** argv)
         cv::Mat rectified2;
         cv::Mat Q;
         cv::Mat R;
+        cv::Rect valid1;
+        cv::Rect valid2;
         tie(rectified1, rectified2, Q, R) = rectify_images(rgbv2[i], camera1, distortion1, transform1,
-                                                           rgbv3[i], camera2, distortion2, transform2, rectify_mode);
+                                                           rgbv3[i], camera2, distortion2, transform2, rectify_mode,
+                                                           valid1, valid2);
         //cv::imwrite(image_folder + "/left" + to_string(i) + ".png", rectified1);
         //cv::imwrite(image_folder + "/right" + to_string(i) + ".png", rectified2);
         /*
@@ -350,7 +410,8 @@ int main(int argc, char** argv)
         while (true) {
             if (prev_rectify_mode != rectify_mode) {
                 tie(rectified1, rectified2, Q, R) = rectify_images(rgbv2[i], camera1, distortion1, transform1,
-                                                                   rgbv3[i], camera2, distortion2, transform2, rectify_mode);
+                                                                   rgbv3[i], camera2, distortion2, transform2, rectify_mode,
+                                                                   valid1, valid2);
                 prev_rectify_mode = rectify_mode;
             }
             params.minDisparity -= 100;
@@ -369,6 +430,7 @@ int main(int argc, char** argv)
                         R.at<double>(2, 0), R.at<double>(2, 1), R.at<double>(2, 2);
             Eigen::Matrix4f T = transform1; //.inverse(); //
             cv::Mat depth = depth_image_from_disparity(disp, Q, camera_depth, distortion_depth, T, rect_rot);
+            cv::Rect valid = compute_valid_region(Q, camera1, camera_depth, distortion_depth, T, rect_rot, valid1, valid2, params);
             cv::Mat disp8;
             double min, max;
             cv::minMaxLoc(depth, &min, &max);
@@ -402,6 +464,7 @@ int main(int argc, char** argv)
             cv::Mat right(disp_img, cv::Rect(640, 0, 640, 480)); // Copy constructor
             //imgorig2.copyTo(right);
             cv::cvtColor(disp8, right, CV_GRAY2BGR);
+            cv::rectangle(right, valid, cv::Scalar(255, 0, 0), 1, 8, 0);
             cv::Mat far(disp_img, cv::Rect(1280, 0, 640, 480));
             cv::cvtColor(real_depth8, far, CV_GRAY2BGR);
 
@@ -409,10 +472,12 @@ int main(int argc, char** argv)
                 cv::imshow("disp", disp_img);
             }
 
+            /*
             stringstream depth1_file_ss; depth1_file_ss<<"/disparity_depth_1_"<<std::setfill('0')<<std::setw(4)<<image_counter<<".yml";
             string depth1_file = data_folder+depth1_file_ss.str();
             cv::FileStorage fs(depth1_file, cv::FileStorage::WRITE);
             fs << "mat1" << depth;  //choose any key here, just be consistant with the one below
+            */
 
             if (visualize) {
                 // Wait until user press some key for 50ms
